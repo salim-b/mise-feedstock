@@ -1,6 +1,6 @@
 context:
   name: mise
-  version: 2026.4.1
+  version: "2026.4.2"
   # upstream refs: https://github.com/jdx/mise/blob/main/scripts/build-tarball.sh & https://github.com/jdx/mise/blob/main/scripts/build-tarball.ps1
   base_features: native-tls,rustls-native-roots,vfox/vendored-lua
   extra_features: ${{ ",aws-lc-rs" if target_platform == "linux-armv7l" else "" }}
@@ -11,10 +11,10 @@ package:
 
 source:
   url: https://github.com/jdx/mise/archive/refs/tags/v${{ version }}.tar.gz
-  sha256: 13e7242665ba46e54344d8bce518a78bfe334ee7c5124431e08a5c4ebc1ecd03
+  sha256: 810b9dfbd3485a55ca125084bbc7198adecf954125e6f2b64f1528f5e271490e
 
 build:
-  number: 1
+  number: 0
   script:
     env:
       CARGO_PROFILE_RELEASE_STRIP: symbols
@@ -58,7 +58,7 @@ build:
 
 requirements:
   build:
-    - ${{ stdlib("c") }} 
+    - ${{ stdlib("c") }}
     - ${{ compiler('c') }}
     - ${{ compiler('rust') }}
     - cargo-auditable
@@ -117,7 +117,7 @@ about:
     (replacing `direnv`), and serves as a built-in task runner to define and execute project workflows as a modern
     alternative to `make` or `npm` scripts.
   license: MIT
-  license_file: 
+  license_file:
     - LICENSE
     - THIRDPARTY.yml
   homepage: https://mise.jdx.dev/
