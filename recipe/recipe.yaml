@@ -1,6 +1,6 @@
 context:
   name: mise
-  version: "2026.4.11"
+  version: "2026.4.12"
   # upstream refs: https://github.com/jdx/mise/blob/main/scripts/build-tarball.sh & https://github.com/jdx/mise/blob/main/scripts/build-tarball.ps1
   base_features: native-tls,rustls-native-roots,vfox/vendored-lua
   extra_features: ${{ ",aws-lc-rs" if target_platform == "linux-armv7l" else "" }}
@@ -11,7 +11,7 @@ package:
 
 source:
   url: https://github.com/jdx/mise/archive/refs/tags/v${{ version }}.tar.gz
-  sha256: a847ca56d6db11571cbf54611156e8d18e0e31f2e63bd9a59fd575af524f2f03
+  sha256: 6fe1ed84815c544f282e4e197dc1c537072fca4ae52945b2933f3a9488be4c75
 
 build:
   number: 0
