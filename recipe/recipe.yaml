@@ -14,7 +14,7 @@ source:
   sha256: 2337fd999874a2fa5cfa1c51eb54966d2a5cfa550824026089cff6b6987395be
 
 build:
-  number: 0
+  number: 1
   script:
     env:
       CARGO_PROFILE_RELEASE_STRIP: symbols
@@ -27,6 +27,8 @@ build:
         then:
           - export LIBCLANG_PATH=$BUILD_PREFIX/lib
           - cargo auditable install --no-track --locked --bins --no-default-features --features ${{ base_features }}${{ extra_features }} --root ${{ PREFIX }} --path .
+          # write custom `mise self-update` message
+          - echo 'message = "This version of mise was installed from conda-forge, a community-maintained channel of Conda packages. Use your Conda package manager (`conda`, `mamba`, `pixi` etc.) to update mise."' > "${{ PREFIX }}/lib/mise-self-update-instructions.toml"
           # copy manpage and generate shell completions
           - mkdir -p $PREFIX/share/man/man1
           - cp man/man1/mise.1 $PREFIX/share/man/man1/mise.1
@@ -41,6 +43,9 @@ build:
           - set "LIBCLANG_PATH=%BUILD_PREFIX%\Library\bin"
           - cargo auditable install --no-track --locked --bins --no-default-features --features ${{ base_features }}${{ extra_features }} --root %LIBRARY_PREFIX% --path .
           - cargo auditable install --no-track --locked --bins --root %LIBRARY_PREFIX% --path crates\mise-shim
+          # write custom `mise self-update` message
+          - mkdir "%LIBRARY_PREFIX%\lib"
+          - echo message = "This version of mise was installed from conda-forge, a community-maintained channel of Conda packages. Use your Conda package manager (`conda`, `mamba`, `pixi` etc.) to update mise."> "%LIBRARY_PREFIX%\lib\mise-self-update-instructions.toml"
           # copy manpage and generate shell completions
           - mkdir %LIBRARY_PREFIX%\share\man\man1
           - powershell -Command "Copy-Item -Path 'man/man1/mise.1' -Destination '%LIBRARY_PREFIX%\share\man\man1\mise.1'"
@@ -85,12 +90,14 @@ tests:
       files:
         - if: unix
           then:
+            - lib/mise-self-update-instructions.toml
             - share/bash-completion/completions/mise
             - share/fish/vendor_completions.d/mise.fish
             - share/zsh/site-functions/_mise
             - share/man/man1/mise.1
         - if: win
           then:
+            - Library/lib/mise-self-update-instructions.toml
             - Library/share/bash-completion/completions/mise
             - Library/share/fish/vendor_completions.d/mise.fish
             - Library/share/zsh/site-functions/_mise
