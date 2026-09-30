@@ -71,8 +71,8 @@ build:
               ^ln -s ($env.BUILD_PREFIX | path join bin llvm-profdata) $profdata
             }
           # `pgo.bash` invokes `"$MISE_PGO_BUILD_TOOL" build ...`, so wrap `cargo auditable` in a single executable
-          - let pgo_build_tool = ($env.SRC_DIR | path join mise-pgo-build-tool)
-          - '"#!/usr/bin/env bash\nexec cargo auditable \"$@\"\n" | save --force $pgo_build_tool'
+          - let pgo_build_tool = ($env.SRC_DIR | path join mise-pgo-build-tool.sh)
+          - cp ($env.RECIPE_DIR | path join mise-pgo-build-tool.sh) $pgo_build_tool
           - ^chmod +x $pgo_build_tool
           - $env.MISE_PGO_BUILD_TOOL = $pgo_build_tool
           - $env.MISE_PGO_PROFILE = "release" # reuse the `CARGO_PROFILE_RELEASE_*` settings above instead of upstream's `serious` profile
@@ -126,13 +126,9 @@ requirements:
       then:
         - bash
         - llvm-tools # provides `llvm-profdata`, symlinked into rustc's sysroot for `scripts/pgo.bash`
-    - if: use_bolt
-      then:
-        # `llvm-bolt` is a placeholder name pending a real conda-forge package (see `use_bolt` above); since
-        # `use_bolt` is statically `false`, rattler-build prunes this whole block at render time and never
-        # attempts to resolve it — verified via `rattler-build build --render-only` for every `.ci_support` variant
-        - llvm-bolt # provides `llvm-bolt`, `merge-fdata` & `libbolt_rt_instr.a` (verify name/availability before enabling `use_bolt` above)
-        - binutils  # provides `readelf`
+    # no `if: use_bolt` block here: since `use_bolt` is statically `false` (see comment above), there's nothing to
+    # require yet. Once BOLT support becomes available, add the packages providing `llvm-bolt`, `merge-fdata` &
+    # `libbolt_rt_instr.a`, plus `binutils` for `readelf`
   host:
     - if: linux
       then: openssl
