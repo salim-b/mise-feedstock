@@ -61,9 +61,10 @@ build:
           - let profdata_dir = ($sysroot | path join lib rustlib $rhost bin)
           - let profdata = ($profdata_dir | path join llvm-profdata)
           # `mkdir` is idempotent (like `mkdir -p`): it creates missing parent dirs and doesn't error if
-          # `$profdata_dir` already exists, so this is safe to run unconditionally. `path exists` follows
-          # symlinks, so a stale/dangling `$profdata` symlink also falls into this branch; `rm -f` clears it
-          # first since `ln -s` refuses to overwrite an existing path (even a broken symlink)
+          # `$profdata_dir` already exists, so this is safe to run unconditionally. Nu's `path exists` follows
+          # symlinks and reports `false` for a dangling one (verified empirically), so a stale/broken `$profdata`
+          # symlink from a prior build also enters this branch; `rm -f` removes that leftover directory entry
+          # first, since `ln -s` refuses to overwrite an existing path (even a dangling symlink)
           - if not ($profdata | path exists) {
               mkdir $profdata_dir;
               rm -f $profdata;
