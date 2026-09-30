@@ -59,6 +59,8 @@ build:
           - 'let rhost = (^rustc -vV | lines | where {|l| $l starts-with "host: "} | first | str replace "host: " "")'
           - let profdata_dir = ($sysroot | path join lib rustlib $rhost bin)
           - let profdata = ($profdata_dir | path join llvm-profdata)
+          # `mkdir` is idempotent (like `mkdir -p`): it creates missing parent dirs and doesn't error if
+          # `$profdata_dir` already exists, so this is safe to run unconditionally
           - if not ($profdata | path exists) {
               mkdir $profdata_dir;
               ^ln -s ($env.BUILD_PREFIX | path join bin llvm-profdata) $profdata
@@ -121,6 +123,9 @@ requirements:
         - llvm-tools # provides `llvm-profdata`, symlinked into rustc's sysroot for `scripts/pgo.bash`
     - if: use_bolt
       then:
+        # `llvm-bolt` is a placeholder name pending a real conda-forge package (see `use_bolt` above); since
+        # `use_bolt` is statically `false`, rattler-build prunes this whole block at render time and never
+        # attempts to resolve it — verified via `rattler-build build --render-only` for every `.ci_support` variant
         - llvm-bolt # provides `llvm-bolt`, `merge-fdata` & `libbolt_rt_instr.a` (verify name/availability before enabling `use_bolt` above)
         - binutils  # provides `readelf`
   host:
