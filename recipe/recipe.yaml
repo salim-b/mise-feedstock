@@ -4,6 +4,16 @@ context:
   base_features: native-tls,rustls-native-roots,vfox/vendored-lua
   extra_features: ${{ ",aws-lc-rs" if target_platform == "linux-armv7l" else "" }}
   self_update_msg: "This version of mise was installed from conda-forge, a community-maintained channel of Conda packages. Use your Conda package manager (`conda`, `mamba`, `pixi` etc.) to update mise."
+  # profile-guided optimization (cf. https://github.com/jdx/mise/blob/main/scripts/pgo.bash) needs to run the
+  # freshly built, instrumented binary, so it's limited to native (non-cross) Unix builds
+  use_pgo: ${{ unix and build_platform == host_platform }}
+  # post-link optimization via BOLT (cf. https://github.com/jdx/mise/blob/main/scripts/bolt.bash) is only supported
+  # by upstream on `linux-64`. It's force-disabled here (hard-coded `false`) because conda-forge doesn't yet ship a
+  # package providing `llvm-bolt`, `merge-fdata` & `libbolt_rt_instr.a` (checked 2026-09: no such package exists, cf.
+  # https://github.com/conda-forge/llvmdev-feedstock, which doesn't build the `bolt` LLVM subproject). Once such a
+  # package becomes available, double-check its name & required files below, then restore the intended condition:
+  # `target_platform == "linux-64" and build_platform == host_platform`
+  use_bolt: false
 
 package:
   name: mise
@@ -19,7 +29,8 @@ build:
     env:
       AWS_LC_SYS_CMAKE_BUILDER: ${{ "1" if win else "0" }} # force CMake builder for `aws-lc-sys` native C/C++ code on Windows
       CARGO_PROFILE_RELEASE_LTO: "thin" # `rustc-LLVM` runs out of memory with `fat` LTO
-      CARGO_PROFILE_RELEASE_STRIP: symbols
+      # BOLT needs the linked binary to retain symbols to work on, so strip only after it has run
+      CARGO_PROFILE_RELEASE_STRIP: ${{ "none" if use_bolt else "symbols" }}
       OPENSSL_NO_VENDOR: "1"
       # instruct `cc` crate to use clang-cl natively to compile build-time tools intended to be run on the host when cross-compiling from `win_64`
       # (fixes compilation of `zstd-sys`)
@@ -40,8 +51,16 @@ build:
           - let bin_dir = ($env.BUILD_PREFIX)/Library/bin | str replace --all '\' '/'
           - let source_dll = glob ($bin_dir)/libclang-*.dll | first
           - cp $source_dll ($bin_dir)/libclang.dll
-      # build main app and generate license data
-      - cargo auditable install --path=. --root=($prefix) --no-track --locked --bins --no-default-features --features=${{ base_features }}${{ extra_features }}
+      # build main app (using upstream's PGO/BOLT scripts on native Unix builds, cf. `use_pgo`/`use_bolt` above) and
+      # generate license data
+      - if: use_pgo
+        then:
+          - $env.MISE_FEATURES = "${{ base_features }}${{ extra_features }}"
+          - if: use_bolt
+            then: $env.MISE_BOLT = "1" # makes `pgo.bash` link with `--emit-relocs`, which BOLT requires
+          - ^nu ($env.RECIPE_DIR | path join build-pgo.nu)
+        else:
+          - cargo auditable install --path=. --root=($prefix) --no-track --locked --bins --no-default-features --features=${{ base_features }}${{ extra_features }}
       - if: win
         then: cargo auditable install --path=crates\mise-shim --root=($prefix) --no-track --locked --bins
       - cargo-bundle-licenses --format=yaml --output=THIRDPARTY.yml
@@ -72,6 +91,13 @@ requirements:
     - ninja
     - nushell
     - pkg-config
+    - if: use_pgo
+      then:
+        - bash
+        - llvm-tools # provides `llvm-profdata`, symlinked into rustc's sysroot for `scripts/pgo.bash`
+    # no `if: use_bolt` block here: since `use_bolt` is statically `false` (see comment above), there's nothing to
+    # require yet. Once BOLT support becomes available, add the packages providing `llvm-bolt`, `merge-fdata` &
+    # `libbolt_rt_instr.a`, plus `binutils` for `readelf`
   host:
     - if: linux
       then: openssl
