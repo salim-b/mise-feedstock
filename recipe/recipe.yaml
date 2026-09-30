@@ -8,11 +8,12 @@ context:
   # freshly built, instrumented binary, so it's limited to native (non-cross) Unix builds
   use_pgo: ${{ unix and build_platform == host_platform }}
   # post-link optimization via BOLT (cf. https://github.com/jdx/mise/blob/main/scripts/bolt.bash) is only supported
-  # by upstream on `linux-64`. It's force-disabled here (`false and ...`) because conda-forge doesn't yet ship a
+  # by upstream on `linux-64`. It's force-disabled here (hard-coded `false`) because conda-forge doesn't yet ship a
   # package providing `llvm-bolt`, `merge-fdata` & `libbolt_rt_instr.a` (checked 2026-09: no such package exists, cf.
-  # https://github.com/conda-forge/llvmdev-feedstock, which doesn't build the `bolt` LLVM subproject). Flip the
-  # leading `false` once such a package becomes available, after double-checking its name & required files below.
-  use_bolt: ${{ false and target_platform == "linux-64" and build_platform == host_platform }}
+  # https://github.com/conda-forge/llvmdev-feedstock, which doesn't build the `bolt` LLVM subproject). Once such a
+  # package becomes available, double-check its name & required files below, then restore the intended condition:
+  # `target_platform == "linux-64" and build_platform == host_platform`
+  use_bolt: false
 
 package:
   name: mise
@@ -60,9 +61,12 @@ build:
           - let profdata_dir = ($sysroot | path join lib rustlib $rhost bin)
           - let profdata = ($profdata_dir | path join llvm-profdata)
           # `mkdir` is idempotent (like `mkdir -p`): it creates missing parent dirs and doesn't error if
-          # `$profdata_dir` already exists, so this is safe to run unconditionally
+          # `$profdata_dir` already exists, so this is safe to run unconditionally. `path exists` follows
+          # symlinks, so a stale/dangling `$profdata` symlink also falls into this branch; `rm -f` clears it
+          # first since `ln -s` refuses to overwrite an existing path (even a broken symlink)
           - if not ($profdata | path exists) {
               mkdir $profdata_dir;
+              rm -f $profdata;
               ^ln -s ($env.BUILD_PREFIX | path join bin llvm-profdata) $profdata
             }
           # `pgo.bash` invokes `"$MISE_PGO_BUILD_TOOL" build ...`, so wrap `cargo auditable` in a single executable
